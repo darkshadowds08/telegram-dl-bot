@@ -1,9 +1,7 @@
 import os
 from flask import Flask, Response, stream_with_context, request
 import requests
-import threading
 
-# بياناتك الخاصة وتوكن البوت
 BOT_TOKEN = "9144967454:AAHhldgMw5zl_saTWG9WCCrcZdshHPpuz8Y"
 RENDER_URL = "https://telegram-dl-bot-e4tw.onrender.com"
 
@@ -14,8 +12,8 @@ FILE_DATABASE = {}
 def home():
     return "Bot Server is running successfully!"
 
-# استقبال التحديثات من تيليجرام عبر الـ Webhook
-@flask_app.route(f'/webhook/{BOT_TOKEN}', methods=['POST'])
+# مسار استقبال الرسائل من تيليجرام
+@flask_app.route('/webhook', methods=['POST'])
 def telegram_webhook():
     update = request.get_json()
     
@@ -23,26 +21,21 @@ def telegram_webhook():
         message = update['message']
         chat_id = message['chat']['id']
         
-        # التحقق مما إذا كانت الرسالة تحتوي على ملف (مستند، فيديو، صوت، أو صورة)
-        media_type = None
         file_id = None
         file_name = "downloaded_file"
         
         if 'document' in message:
-            media_type = 'document'
             file_id = message['document']['file_id']
             file_name = message['document'].get('file_name', 'document')
         elif 'video' in message:
-            media_type = 'video'
             file_id = message['video']['file_id']
             file_name = message['video'].get('file_name', 'video.mp4')
         elif 'audio' in message:
-            media_type = 'audio'
             file_id = message['audio']['file_id']
             file_name = message['audio'].get('file_name', 'audio.mp3')
             
         if file_id:
-            # الحصول على مسار الملف الحقيقي من تيليجرام
+            # جلب مسار الملف من تيليجرام
             file_path_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}"
             res = requests.get(file_path_url).json()
             
@@ -51,7 +44,6 @@ def telegram_webhook():
                 file_size = res['result'].get('file_size', 0)
                 telegram_direct_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
                 
-                # حفظ الملف في قاعدة البيانات المؤقتة
                 file_key = str(abs(hash(file_id)))
                 FILE_DATABASE[file_key] = {
                     "url": telegram_direct_url,
@@ -59,10 +51,10 @@ def telegram_webhook():
                     "size": file_size
                 }
                 
-                # توليد رابط التحميل المباشر المتوافق مع IDM
+                # رابط التحميل المباشر المتوافق مع IDM
                 download_link = f"{RENDER_URL}/download/{file_key}"
                 
-                # إرسال الرد للمستخدم في تيليجرام
+                # الرد على المستخدم في تيليجرام
                 reply_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
                 payload = {
                     "chat_id": chat_id,
@@ -97,9 +89,4 @@ def download_file(file_key):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    
-    # ربط الـ Webhook تلقائياً مع تيليجرام عند بدء التشغيل
-    webhook_url = f"{RENDER_URL}/webhook/{BOT_TOKEN}"
-    requests.get(f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}")
-    
     flask_app.run(host="0.0.0.0", port=port)
