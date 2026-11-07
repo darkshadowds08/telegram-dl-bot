@@ -1,5 +1,2 @@
-pyrogram
-tgcrypto
 flask
 requests
-hypercorn
