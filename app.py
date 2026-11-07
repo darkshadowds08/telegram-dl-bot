@@ -16,7 +16,7 @@ def home():
 def telegram_webhook():
     try:
         update = request.get_json()
-        print("Received update:", update)  # طباعة البيانات في السجلات للتأكد من وصولها
+        print("Received update:", update)
         
         if update and 'message' in update:
             message = update['message']
@@ -35,7 +35,6 @@ def telegram_webhook():
                 file_id = message['audio']['file_id']
                 file_name = message['audio'].get('file_name', 'audio.mp3')
             elif 'photo' in message:
-                # أخذ أعلى دقة للصورة
                 file_id = message['photo'][-1]['file_id']
                 file_name = "photo.jpg"
                 
@@ -96,4 +95,11 @@ def download_file(file_key):
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
+    
+    # ربط الـ Webhook تلقائياً عند تشغيل السيرفر لمنع أي خطأ 404
+    webhook_url = f"{RENDER_URL}/webhook"
+    set_wh_url = f"https://api.telegram.org/bot{BOT_TOKEN}/setWebhook?url={webhook_url}"
+    response = requests.get(set_wh_url).json()
+    print("Auto setWebhook response:", response)
+    
     flask_app.run(host="0.0.0.0", port=port)
