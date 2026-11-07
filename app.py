@@ -3,7 +3,7 @@ from pyrogram import Client, filters
 from pyrogram.types import Message
 from flask import Flask, Response, stream_with_context
 import requests
-import threading
+import asyncio
 
 # بياناتك الخاصة وتوكن البوت
 API_ID = 31124352
@@ -14,7 +14,6 @@ BOT_TOKEN = "9144967454:AAHhldgMw5zl_saTWG9WCCrcZdshHPpuz8Y"
 app = Client("telegram_dl_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 flask_app = Flask(__name__)
 
-# قاموس مؤقت لحفظ بيانات الملفات
 FILE_DATABASE = {}
 
 @app.on_message(filters.document | filters.video | filters.audio)
@@ -33,7 +32,7 @@ async def handle_file(client: Client, message: Message):
         "size": media.file_size
     }
     
-    # ⚠️ ملاحظة هامة: بعد رفع البوت على Render، استبدل localhost برابط موقعك الحقيقي (مثلاً: https://your-app.onrender.com)
+    # ⚠️ استبدل localhost برابط موقعك الحقيقي على Render لاحقاً (مثلاً: https://your-app.onrender.com)
     download_link = f"http://localhost:5000/download/{file_key}"
     
     await message.reply_text(
@@ -65,11 +64,19 @@ def download_file(file_key):
     response.headers["Accept-Ranges"] = "bytes"
     return response
 
-def run_flask():
+async def main():
+    # بدء تشغيل سيرفر Flask في الخلفية بشكل متوافق مع Asyncio
+    import hypercorn.asyncio
+    from hypercorn.config import Config
+    
     port = int(os.environ.get("PORT", 5000))
-    flask_app.run(host="0.0.0.0", port=port)
+    config = Config()
+    config.bind = [f"0.0.0.0:{port}"]
+    
+    # تشغيل البوت وسيرفر الويب معاً بدون أخطاء
+    await app.start()
+    print("Bot started successfully!")
+    await hypercorn.asyncio.serve(flask_app, config)
 
 if __name__ == "__main__":
-    t = threading.Thread(target=run_flask)
-    t.start()
-    app.run()
+    asyncio.run(main())
