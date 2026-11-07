@@ -1,18 +1,13 @@
 import os
 from flask import Flask, Response, stream_with_context
 import requests
-import threading
-from telegram import Bot
-
-# بياناتك الخاصة وتوكن البوت
-BOT_TOKEN = "9144967454:AAHhldgMw5zl_saTWG9WCCrcZdshHPpuz8Y"
 
 flask_app = Flask(__name__)
 FILE_DATABASE = {}
 
 @flask_app.route('/')
 def home():
-    return "Bot is running successfully!"
+    return "Bot Server is running successfully!"
 
 @flask_app.route('/download/<file_key>')
 def download_file(file_key):
