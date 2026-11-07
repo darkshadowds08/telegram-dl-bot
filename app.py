@@ -12,57 +12,64 @@ FILE_DATABASE = {}
 def home():
     return "Bot Server is running successfully!"
 
-# مسار استقبال الرسائل من تيليجرام
 @flask_app.route('/webhook', methods=['POST'])
 def telegram_webhook():
-    update = request.get_json()
-    
-    if update and 'message' in update:
-        message = update['message']
-        chat_id = message['chat']['id']
+    try:
+        update = request.get_json()
+        print("Received update:", update)  # طباعة البيانات في السجلات للتأكد من وصولها
         
-        file_id = None
-        file_name = "downloaded_file"
+        if update and 'message' in update:
+            message = update['message']
+            chat_id = message['chat']['id']
+            
+            file_id = None
+            file_name = "downloaded_file"
+            
+            if 'document' in message:
+                file_id = message['document']['file_id']
+                file_name = message['document'].get('file_name', 'document')
+            elif 'video' in message:
+                file_id = message['video']['file_id']
+                file_name = message['video'].get('file_name', 'video.mp4')
+            elif 'audio' in message:
+                file_id = message['audio']['file_id']
+                file_name = message['audio'].get('file_name', 'audio.mp3')
+            elif 'photo' in message:
+                # أخذ أعلى دقة للصورة
+                file_id = message['photo'][-1]['file_id']
+                file_name = "photo.jpg"
+                
+            if file_id:
+                file_path_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}"
+                res = requests.get(file_path_url).json()
+                print("Telegram getFile response:", res)
+                
+                if res.get('ok'):
+                    file_path = res['result']['file_path']
+                    file_size = res['result'].get('file_size', 0)
+                    telegram_direct_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+                    
+                    file_key = str(abs(hash(file_id)))
+                    FILE_DATABASE[file_key] = {
+                        "url": telegram_direct_url,
+                        "name": file_name,
+                        "size": file_size
+                    }
+                    
+                    download_link = f"{RENDER_URL}/download/{file_key}"
+                    
+                    reply_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                    payload = {
+                        "chat_id": chat_id,
+                        "text": f"✅ **تم الرفع بنجاح!**\n\n📁 **اسم الملف:** `{file_name}`\n🔗 **رابط التحميل المباشر (جاهز لـ IDM):**\n`{download_link}`",
+                        "parse_mode": "Markdown"
+                    }
+                    resp = requests.post(reply_url, json=payload)
+                    print("Telegram send message response:", resp.text)
+                    
+    except Exception as e:
+        print("Error processing update:", str(e))
         
-        if 'document' in message:
-            file_id = message['document']['file_id']
-            file_name = message['document'].get('file_name', 'document')
-        elif 'video' in message:
-            file_id = message['video']['file_id']
-            file_name = message['video'].get('file_name', 'video.mp4')
-        elif 'audio' in message:
-            file_id = message['audio']['file_id']
-            file_name = message['audio'].get('file_name', 'audio.mp3')
-            
-        if file_id:
-            # جلب مسار الملف من تيليجرام
-            file_path_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getFile?file_id={file_id}"
-            res = requests.get(file_path_url).json()
-            
-            if res.get('ok'):
-                file_path = res['result']['file_path']
-                file_size = res['result'].get('file_size', 0)
-                telegram_direct_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
-                
-                file_key = str(abs(hash(file_id)))
-                FILE_DATABASE[file_key] = {
-                    "url": telegram_direct_url,
-                    "name": file_name,
-                    "size": file_size
-                }
-                
-                # رابط التحميل المباشر المتوافق مع IDM
-                download_link = f"{RENDER_URL}/download/{file_key}"
-                
-                # الرد على المستخدم في تيليجرام
-                reply_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                payload = {
-                    "chat_id": chat_id,
-                    "text": f"✅ **تم الرفع بنجاح!**\n\n📁 **اسم الملف:** `{file_name}`\n🔗 **رابط التحميل المباشر (جاهز لـ IDM):**\n`{download_link}`",
-                    "parse_mode": "Markdown"
-                }
-                requests.post(reply_url, json=payload)
-                
     return "OK", 200
 
 @flask_app.route('/download/<file_key>')
